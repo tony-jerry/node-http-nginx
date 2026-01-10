@@ -1,0 +1,116 @@
+{
+  "name": "node-http-nginx",
+  "displayName": "Node HTTP Nginx",
+  "icon": "resources/icon.png",
+  "description": "Visual Nginx config browser and one-click control (start/stop/restart).",
+  "version": "0.0.1",
+  "publisher": "tony-wei-devops",
+  "author": "tony",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tony-wei1990/node-http-nginx"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "nodeHttpNginx-container",
+          "title": "nodeHttpNginx 管理器",
+          "icon": "$(server)"
+        }
+      ]
+    },
+    "views": {
+      "nodeHttpNginx-container": [
+        {
+          "id": "nodeHttpNginx.view",
+          "name": "nodeHttpNginx 管理器",
+          "icon": "$(server)"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "nodeHttpNginx.nodeStart",
+        "title": "Nginx(Node): Start From nginx.conf",
+        "icon": "$(play)"
+      },
+      {
+        "command": "nodeHttpNginx.nodeStop",
+        "title": "Nginx(Node): Stop",
+        "icon": "$(primitive-square)"
+      },
+      {
+        "command": "nodeHttpNginx.nodeRestart",
+        "title": "Nginx(Node): Restart",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "nodeHttpNginx.selectNodeConfig",
+        "title": "Nginx(Node): Select nginx.conf",
+        "icon": "$(file-add)"
+      },
+      {
+        "command": "nodeHttpNginx.openNodeConfig",
+        "title": "Nginx(Node): Open nginx.conf",
+        "icon": "$(edit)"
+      }
+    ],
+    "configuration": {
+      "title": "nodeHttpNginx 管理器",
+      "properties": {
+        "nodeHttpNginx.nodeConfigPath": {
+          "type": "string",
+          "default": "",
+          "description": "nginx.conf path for Node simulator."
+        },
+        "nodeHttpNginx.nodeHost": {
+          "type": "string",
+          "default": "0.0.0.0",
+          "description": "Host for Node simulator."
+        },
+        "nodeHttpNginx.nodeOverridePort": {
+          "type": "number",
+          "default": 0,
+          "description": "Override listen port for Node simulator. 0 means use nginx.conf."
+        },
+        "nodeHttpNginx.nodeBaseDir": {
+          "type": "string",
+          "default": "",
+          "description": "Base directory used to resolve relative paths in nginx.conf."
+        },
+        "nodeHttpNginx.showCommandOutput": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show command output in Output panel."
+        },
+        "nodeHttpNginx.nodeCurrentState": {
+          "type": "string",
+          "default": "stopped",
+          "enum": ["running", "stopped"],
+          "description": "UI state only; updated after Node simulator actions.",
+          "scope": "window"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.7",
+    "@types/vscode": "^1.80.0",
+    "eslint": "^8.57.1",
+    "typescript": "^5.7.3"
+  }
+}
