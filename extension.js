@@ -817,6 +817,7 @@ async function nodeStart(context) {
 
     nodeHttpServer.on('error', (e) => {
       output.appendLine(`[致命错误] 服务异常终止: ${e.message}`);
+      // @ts-ignore
       if (e.code === 'EADDRINUSE') {
         vscode.window.showErrorMessage(`启动失败：端口 ${port} 已被占用。`);
       } else {
