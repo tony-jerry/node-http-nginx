@@ -1,0 +1,9 @@
+.github/**
+.vscode/**
+.eslintrc.json
+tsconfig.json
+test_parser.js
+test_path.js
+package-lock.json
+.gitignore
+node_modules/**
