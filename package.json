@@ -103,11 +103,14 @@
     }
   },
   "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json",
     "package": "npx @vscode/vsce package"
   },
   "devDependencies": {
     "@types/node": "^22.10.7",
     "@types/vscode": "^1.80.0",
+    "eslint": "^8.57.1",
     "typescript": "^5.7.3"
   }
 }
