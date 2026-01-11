@@ -26,7 +26,31 @@
 - `nodeHttpNginx.nodeBaseDir`: 设置静态资源查找的基础目录。
 - `nodeHttpNginx.showCommandOutput`: 是否在启动时自动弹出输出面板。
 
-## 🛠️ 使用说明
+## 🛠️ 开发与编译
+
+如果你想从源码构建插件，请遵循以下步骤：
+
+### 1. 安装依赖
+```bash
+npm install
+```
+### 2. 打包插件 (.vsix)
+使用以下命令将插件打包为安装文件：
+```bash
+npm run package
+```
+
+### 4. 持续集成 (CI)
+本项目已配置 GitHub Actions。
+- **自动构建**：每次推送到 `main` 分支都会触发自动构建。
+- **自动发布**：推送以 `v` 开头的标签（如 `v0.0.2`）将自动创建 GitHub Release 并上传 `.vsix` 安装包。
+
+```bash
+git tag v0.0.2
+git push origin v0.0.2
+```
+
+## 📖 使用说明
 
 1. **选择配置**：点击“选择配置文件”或确保工作区根目录有 `nginx.conf`。
 2. **启动服务**：点击“启动服务”，插件将根据配置启动本地服务器。

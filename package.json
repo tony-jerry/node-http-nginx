@@ -3,7 +3,7 @@
   "displayName": "Node HTTP Nginx",
   "icon": "resources/icon.png",
   "description": "Visual Nginx config browser and one-click control (start/stop/restart).",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "tony-wei-devops",
   "author": "tony",
   "license": "MIT",
