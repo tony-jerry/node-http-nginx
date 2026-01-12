@@ -2,6 +2,7 @@ const vscode = require('vscode');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
+const https = require('https');
 const { URL } = require('url');
 
 const CONFIG_SECTION = 'nodeHttpNginx';
@@ -441,6 +442,8 @@ function buildNodeServerConfigFromAst(ast, configFilePath, baseDir) {
       regex: kind === 'regex' ? new RegExp(matcherValue, flags) : null,
       proxyPass: findDirectives(block.children || [], 'proxy_pass')[0]?.args?.[0],
       root: findDirectives(block.children || [], 'root')[0]?.args?.[0],
+      alias: findDirectives(block.children || [], 'alias')[0]?.args?.[0],
+      index: parseIndexList(findDirectives(block.children || [], 'index')[0]?.args),
       tryFiles: parseTryFiles(findDirectives(block.children || [], 'try_files')[0]?.args)
     });
   }
@@ -494,6 +497,60 @@ function safeJoin(rootDir, requestPath) {
     return null;
   }
   return candidate;
+}
+
+/**
+ * @description 代理请求到目标服务器
+ * @param {http.IncomingMessage} clientReq 客户端请求
+ * @param {http.ServerResponse} clientRes 客户端响应
+ * @param {string} targetUrlStr 目标 URL 字符串
+ * @param {vscode.OutputChannel} output 输出通道
+ */
+function proxyRequest(clientReq, clientRes, targetUrlStr, output) {
+  try {
+    const targetUrl = new URL(targetUrlStr);
+    const isHttps = targetUrl.protocol === 'https:';
+    const requestLib = isHttps ? https : http;
+
+    const options = {
+      hostname: targetUrl.hostname,
+      port: targetUrl.port || (isHttps ? 443 : 80),
+      path: targetUrl.pathname + (targetUrl.search || ''),
+      method: clientReq.method,
+      headers: { ...clientReq.headers }
+    };
+
+    // 调整 Host 头
+    options.headers.host = targetUrl.host;
+    // 移除干扰头
+    delete options.headers.connection;
+    delete options.headers['content-length'];
+
+    output.appendLine(`[代理] 正向转发: ${clientReq.method} ${targetUrlStr}`);
+
+    const proxyReq = requestLib.request(options, (proxyRes) => {
+      clientRes.writeHead(proxyRes.statusCode, proxyRes.headers);
+      proxyRes.pipe(clientRes);
+    });
+
+    proxyReq.on('error', (err) => {
+      output.appendLine(`[代理错误] 请求失败: ${err.message}`);
+      if (!clientRes.headersSent) {
+        clientRes.writeHead(502, { 'Content-Type': 'text/plain' });
+        clientRes.end('502 Bad Gateway (Proxy Error)');
+      }
+    });
+
+    // 转发请求体
+    clientReq.pipe(proxyReq);
+
+  } catch (err) {
+    output.appendLine(`[代理异常] 构建请求失败: ${err.message}`);
+    if (!clientRes.headersSent) {
+      clientRes.writeHead(500);
+      clientRes.end('500 Internal Server Error (Proxy)');
+    }
+  }
 }
 
 /**
@@ -707,17 +764,67 @@ async function nodeStart(context) {
         
         output.appendLine(`[请求] ${req.method} ${pathname} -> 匹配: ${loc?.matcher || 'default'}`);
 
-        // 处理代理 (Mock)
+        if (loc) {
+          if (loc.alias) output.appendLine(`  - alias: ${loc.alias}`);
+          if (loc.root) output.appendLine(`  - root: ${loc.root}`);
+        }
+
+        // 处理代理
         if (loc?.proxyPass) {
-          output.appendLine(`[代理] 转发至 ${loc.proxyPass} (当前仅返回 Mock 响应)`);
-          res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-          res.end(`[Mock] 已匹配代理路径: ${loc.proxyPass}`);
+          const proxyPass = loc.proxyPass;
+          const proxyUrl = new URL(proxyPass);
+          const hasTrailingSlash = proxyPass.endsWith('/');
+
+          const noProtocol = proxyPass.replace(/^https?:\/\//, '');
+          const slashIndex = noProtocol.indexOf('/');
+          const hasPathInProxyPass = slashIndex !== -1 && slashIndex < noProtocol.length - 1;
+
+          let targetUrlStr;
+          if (hasPathInProxyPass) {
+            let relativePath = pathname;
+            if (loc.kind === 'prefix' && pathname.startsWith(loc.matcher)) {
+              relativePath = pathname.slice(loc.matcher.length);
+            }
+            const rel = String(relativePath || '').replace(/^\/+/, '');
+            const basePath = String(proxyUrl.pathname || '/');
+            const joinedPath = basePath.endsWith('/') ? `${basePath}${rel}` : `${basePath}/${rel}`;
+            targetUrlStr = `${proxyUrl.protocol}//${proxyUrl.host}${joinedPath}${url.search || ''}`;
+          } else if (hasTrailingSlash) {
+            let relativePath = pathname;
+            if (loc.kind === 'prefix' && pathname.startsWith(loc.matcher)) {
+              relativePath = pathname.slice(loc.matcher.length);
+            }
+            const rel = String(relativePath || '').replace(/^\/+/, '');
+            targetUrlStr = `${proxyUrl.protocol}//${proxyUrl.host}/${rel}${url.search || ''}`;
+          } else {
+            targetUrlStr = `${proxyUrl.protocol}//${proxyUrl.host}${req.url}`;
+          }
+
+          proxyRequest(req, res, targetUrlStr, output);
           return;
         }
 
         // 处理静态文件
-        const rootDir = loc?.root ? resolvePathInWorkspace(loc.root) : cfg.serverRoot;
-        const filePath = safeJoin(rootDir, pathname);
+        const rootDir = loc?.alias
+          ? resolvePathInWorkspace(loc.alias)
+          : (loc?.root ? resolvePathInWorkspace(loc.root) : cfg.serverRoot);
+        let filePath;
+        if (loc?.alias) {
+          const aliasDir = rootDir;
+          if (loc.kind === 'prefix') {
+            // alias: 移除匹配的前缀
+            let relative = pathname;
+            if (pathname.startsWith(loc.matcher)) {
+              relative = pathname.slice(loc.matcher.length);
+            }
+            filePath = safeJoin(aliasDir, relative);
+          } else {
+            // 正则匹配下的 alias 处理较为复杂，暂作简单拼接或视为不支持
+            filePath = safeJoin(aliasDir, pathname); 
+          }
+        } else {
+          filePath = safeJoin(rootDir, pathname);
+        }
         
         if (!filePath) {
           res.writeHead(403);
@@ -727,6 +834,7 @@ async function nodeStart(context) {
 
         // 尝试寻找文件
         let targetPath = filePath;
+        output.appendLine(`  - 尝试访问路径: ${targetPath}`);
         let stats;
         try {
           stats = await fs.promises.stat(targetPath);
@@ -741,6 +849,7 @@ async function nodeStart(context) {
                   targetPath = idxPath;
                   stats = idxStats;
                   foundIndex = true;
+                  output.appendLine(`  - 找到 index 文件: ${targetPath}`);
                   break;
                 }
               } catch {}

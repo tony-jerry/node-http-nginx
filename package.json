@@ -3,7 +3,7 @@
   "displayName": "Node HTTP Nginx",
   "icon": "resources/icon.png",
   "description": "Visual Nginx config browser and one-click control (start/stop/restart).",
-  "version": "0.0.2",
+  "version": "0.0.5",
   "publisher": "tony-wei-devops",
   "author": "tony",
   "license": "MIT",
@@ -111,6 +111,10 @@
     "@types/node": "^22.10.7",
     "@types/vscode": "^1.80.0",
     "eslint": "^8.57.1",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "@vscode/vsce": "^2.15.0"
+  },
+  "overrides": {
+    "undici": "5.28.4"
   }
 }
